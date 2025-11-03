@@ -3,9 +3,13 @@ import numpy as np
 import keras
 from keras.layers import Dropout, Dense, Normalization
 from keras.models import Sequential
-from keras.callbacks import EarlyStopping
+from keras.callbacks import EarlyStopping, ReduceLROnPlateau
 from keras.utils import to_categorical
 from sklearn.model_selection import train_test_split
+from sklearn.utils.class_weight import compute_class_weight
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 
 class Modello:
     def __init__(self, dataset):
@@ -13,15 +17,16 @@ class Modello:
         self.model = None
         self.num_classes = None
 
-    def set_modello(self):
+    def set_modello(self, num_layer, n_neurons, dropouts):
         normalizer = Normalization(axis=-1)
         normalizer.adapt(self.X_train)
-        self.model = Sequential([
-            normalizer,
-            Dense(64, activation='relu'), Dropout(0.3),
-            Dense(32, activation='relu'), Dropout(0.2),
-            Dense(self.num_classes, activation='softmax')  # Output layer for regression
-        ])
+        self.model = Sequential([normalizer])
+
+        for k in range(num_layer):
+            self.model.add(Dense(n_neurons[k], activation='relu'), Dropout(dropouts[k]),)
+
+        self.model.add(Dense(self.num_classes, activation='softmax'))  # Output layer for regression
+
         self.model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
 
     def drop_colonna(self, colonna):
@@ -46,7 +51,15 @@ class Modello:
     def train_model(self, epochs=50, batch_size=32):
         if self.model is None:
             raise ValueError("Il modello non è stato impostato. Chiama 'set_modello' prima di addestrare.")
-        self.model.fit(self.X_train, self.y_train, epochs=epochs, batch_size=batch_size, validation_split=0.2, callbacks=[self.early_stopping])
+        class_weights = compute_class_weight(
+            class_weight='balanced',
+            classes=np.unique(np.argmax(self.y_train, axis=1)),
+            y=np.argmax(self.y_train, axis=1)
+        )
+        class_weights = dict(enumerate(class_weights))
+        reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=100)
+        self.model.fit(self.X_train, self.y_train, epochs=epochs, batch_size=batch_size, validation_split=0.2,
+                       callbacks=[self.early_stopping, reduce_lr], class_weight=class_weights)
 
     def early_stopping(self, monitor, patience, restore_best_weights, verbose):
         self.early_stopping = EarlyStopping (monitor=monitor, patience=patience, restore_best_weights=restore_best_weights, verbose=verbose)
@@ -57,6 +70,34 @@ class Modello:
         loss, accuracy = self.model.evaluate(self.X_test, self.y_test)
         print(f"Test Loss: {loss}, Test Accuracy: {accuracy}")
 
+    def plot_confusion_matrix(self, normalize=True, cmap='Blues'):
+        """
+        Disegna la matrice di confusione per il modello addestrato.
+
+        Parametri:
+        - normalize: se True, normalizza le righe della matrice (percentuali)
+        - cmap: colormap da usare (default 'Blues')
+        """
+        if self.model is None:
+            raise ValueError("Il modello non è stato impostato. Chiama 'set_modello' prima di valutare.")
+
+        # Predizioni sul test set
+        y_pred_probs = self.model.predict(self.X_test)
+        y_pred = np.argmax(y_pred_probs, axis=1)
+        y_true = np.argmax(self.y_test, axis=1)
+
+        # Calcolo matrice di confusione
+        cm = confusion_matrix(y_true, y_pred, normalize='true' if normalize else None)
+        labels = np.arange(self.num_classes)
+
+        # Visualizzazione
+        plt.figure(figsize=(8, 6))
+        sns.heatmap(cm, annot=True, fmt=".2f" if normalize else "d", cmap=cmap,
+                    xticklabels=labels, yticklabels=labels)
+        plt.xlabel("Predicted Labels")
+        plt.ylabel("True Labels")
+        plt.title("Confusion Matrix" + (" (normalized)" if normalize else ""))
+        plt.show()
 
 
 
