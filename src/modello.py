@@ -1,20 +1,26 @@
-from dataset import Dataset
+from src.dataset import Dataset
+import numpy as np
 import keras
-from keras.layers import Dropout, Dense
+from keras.layers import Dropout, Dense, Normalization
 from keras.models import Sequential
 from keras.callbacks import EarlyStopping
+from keras.utils import to_categorical
 from sklearn.model_selection import train_test_split
 
 class Modello:
     def __init__(self, dataset):
         self.dataset = dataset
         self.model = None
+        self.num_classes = None
 
-    def set_modello(self, input_shape, num_classes):
+    def set_modello(self):
+        normalizer = Normalization(axis=-1)
+        normalizer.adapt(self.X_train)
         self.model = Sequential([
-            Dense(64, activation='relu', input_shape=(input_shape,)), Dropout(0.3),    
+            normalizer,
+            Dense(64, activation='relu'), Dropout(0.3),
             Dense(32, activation='relu'), Dropout(0.2),
-            Dense(num_classes, activation='softmax')  # Output layer for regression
+            Dense(self.num_classes, activation='softmax')  # Output layer for regression
         ])
         self.model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
 
@@ -28,8 +34,14 @@ class Modello:
     def split_data(self, test_size=0.2, random_state=42):
         X = self.dataset.data.values
         y = self.true_labels.values
+        unique_classes = np.unique(y)
+        self.num_classes = len(unique_classes)
+        label_map = {label: idx for idx, label in enumerate(unique_classes)}
+        y_mapped = np.array([label_map[val] for val in y])
         self.X_train, self.X_test, self.y_train, self.y_test = train_test_split(
-            X, y, test_size=test_size, random_state=random_state)
+            X, y_mapped, test_size=test_size, random_state=random_state)
+        self.y_train = to_categorical(self.y_train)
+        self.y_test = to_categorical(self.y_test)
         
     def train_model(self, epochs=50, batch_size=32):
         if self.model is None:
