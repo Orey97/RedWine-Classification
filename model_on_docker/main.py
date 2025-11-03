@@ -1,11 +1,15 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template
 from keras.models import load_model
 import numpy as np
 
 app = Flask(__name__)
 
 # Carica il modello Keras
-model = load_model('../classification_model.keras')
+model = load_model('C:\\Users\\yurim\\Documents\\Work\\Formazione_Experis\\codice\\RedWine-Classification\\model_on_docker\\classification_model.keras')
+
+@app.route('/')
+def home():
+    return render_template('index.html')
 
 @app.route('/predict', methods=['POST'])
 def predict():
