@@ -19,14 +19,16 @@ dataset.correlation_heatmap(top_n=12)
 '''
 dataset.data = pd.read_csv('red_wine_quality.csv')
 
-model = Modello(dataset)
+classification = Modello(dataset)
 
-model.drop_colonna('quality')
-model.split_data(0.2, 30)
-model.set_modello(4, [256, 128, 64, 32], [0.3, 0.2, 0.1, 0])
+classification.drop_colonna('quality')
+classification.split_data_less_classes(0.2, 30)
+classification.set_modello(4, [256, 128, 64, 32], [0.2, 0.2, 0.1, 0])
 
-model.early_stopping('val_loss', 100, True, 2)
-model.train_model(1000, 32)
-model.evaluate_model()
+classification.early_stopping('val_loss', 100, True, 2)
+classification.train_model(1000, 32)
+classification.evaluate_model()
 
-model.plot_confusion_matrix()
+classification.plot_confusion_matrix()
+
+classification.model.save("classification_model.keras")

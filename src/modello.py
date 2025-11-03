@@ -1,7 +1,7 @@
 from src.dataset import Dataset
 import numpy as np
 import keras
-from keras.layers import Dropout, Dense, Normalization
+from keras.layers import Dropout, Dense, Normalization, BatchNormalization
 from keras.models import Sequential
 from keras.callbacks import EarlyStopping, ReduceLROnPlateau
 from keras.utils import to_categorical
@@ -23,7 +23,10 @@ class Modello:
         self.model = Sequential([normalizer])
 
         for k in range(num_layer):
-            self.model.add(Dense(n_neurons[k], activation='relu'), Dropout(dropouts[k]),)
+            self.model.add(Dense(n_neurons[k], activation='relu'))
+            if k != num_layer - 1:
+                self.model.add(BatchNormalization())
+            self.model.add(Dropout(dropouts[k]))
 
         self.model.add(Dense(self.num_classes, activation='softmax'))  # Output layer for regression
 
@@ -47,7 +50,22 @@ class Modello:
             X, y_mapped, test_size=test_size, random_state=random_state)
         self.y_train = to_categorical(self.y_train)
         self.y_test = to_categorical(self.y_test)
-        
+
+    def split_data_less_classes(self, test_size=0.2, random_state=42):
+        X = self.dataset.data.values
+        y = self.true_labels.values
+
+        # Raggruppa le classi
+        y_grouped = np.where(y <= 5, 0, np.where(y == 6, 1, 2))
+
+        self.num_classes = len(np.unique(y_grouped))
+        self.X_train, self.X_test, self.y_train, self.y_test = train_test_split(
+            X, y_grouped, test_size=test_size, random_state=random_state)
+
+        self.y_train = to_categorical(self.y_train)
+        self.y_test = to_categorical(self.y_test)
+
+
     def train_model(self, epochs=50, batch_size=32):
         if self.model is None:
             raise ValueError("Il modello non è stato impostato. Chiama 'set_modello' prima di addestrare.")
