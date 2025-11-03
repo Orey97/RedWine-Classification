@@ -22,7 +22,7 @@ dataset.data = pd.read_csv('red_wine_quality.csv')
 classification = Modello(dataset)
 
 classification.drop_colonna('quality')
-classification.split_data_less_classes(0.2, 30)
+classification.split_data_less_classes(0.2, 420)
 classification.set_modello(4, [256, 128, 64, 32], [0.2, 0.2, 0.1, 0])
 
 classification.early_stopping('val_loss', 100, True, 2)
